@@ -7,8 +7,6 @@ COPY . /app
 
 RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
     pip install git+https://github.com/huggingface/diffusers.git \
-                transformers accelerate fastapi uvicorn pillow
+                transformers accelerate pillow
 
 ENV PYTHONUNBUFFERED=1
-
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
