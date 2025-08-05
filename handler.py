@@ -1,13 +1,13 @@
 import subprocess
-import base64
 import uuid
+import base64
 from PIL import Image
 from io import BytesIO
+import os
 
 def save_base64_image(b64_string, path):
-    image_data = base64.b64decode(b64_string)
     with open(path, "wb") as f:
-        f.write(image_data)
+        f.write(base64.b64decode(b64_string))
 
 def encode_base64_image(path):
     with open(path, "rb") as f:
@@ -18,11 +18,13 @@ def handler(event):
     image_b64 = event.get("image")
 
     if not prompt or not image_b64:
-        return {"error": "Missing prompt or image."}
+        return {"error": "Missing 'prompt' or 'image' (base64)."}
 
     input_path = f"/tmp/input-{uuid.uuid4()}.png"
-    output_path = "/tmp/out/flux_output.png"
+    output_dir = "/tmp/out"
+    output_path = f"{output_dir}/flux_output.png"
 
+    os.makedirs(output_dir, exist_ok=True)
     save_base64_image(image_b64, input_path)
 
     try:
@@ -30,12 +32,12 @@ def handler(event):
             "python3", "-m", "flux", "kontext",
             "--prompt", prompt,
             "--image", input_path,
-            "--output_dir", "/tmp/out"
+            "--output_dir", output_dir
         ], check=True)
 
-        output_b64 = encode_base64_image(output_path)
-        return {"output": output_b64}
+        result = encode_base64_image(output_path)
+        return {"output": result}
     except subprocess.CalledProcessError as e:
         return {"error": f"FLUX crashed: {e}"}
-    except Exception as ex:
-        return {"error": str(ex)}
+    except Exception as e:
+        return {"error": str(e)}
