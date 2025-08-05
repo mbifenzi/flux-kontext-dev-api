@@ -1,12 +1,11 @@
-FROM python:3.10-slim
+FROM pytorch/pytorch:2.1.0-cuda11.8-cudnn8-runtime
 
-RUN apt-get update && apt-get install -y git libgl1 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y git curl libglib2.0-0 libsm6 libxrender1 libxext6
 
 WORKDIR /app
 COPY . /app
 
-RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
-    pip install git+https://github.com/huggingface/diffusers.git \
-                transformers accelerate pillow
+RUN pip install --upgrade pip
+RUN pip install -r requirements.txt
 
-ENV PYTHONUNBUFFERED=1
+CMD ["python", "handler.py"]
