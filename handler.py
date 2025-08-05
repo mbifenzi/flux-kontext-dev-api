@@ -1,42 +1,41 @@
-import torch
-from diffusers import FluxKontextPipeline
-from diffusers.utils import load_image
-from io import BytesIO
+import subprocess
 import base64
+import uuid
 from PIL import Image
+from io import BytesIO
 
-# Load model once
-pipe = FluxKontextPipeline.from_pretrained(
-    "black-forest-labs/FLUX.1-Kontext-dev",
-    torch_dtype=torch.float16
-).to("cuda")
+def save_base64_image(b64_string, path):
+    image_data = base64.b64decode(b64_string)
+    with open(path, "wb") as f:
+        f.write(image_data)
 
-def decode_base64_image(b64_string):
-    return Image.open(BytesIO(base64.b64decode(b64_string)))
-
-def encode_base64_image(image):
-    buffered = BytesIO()
-    image.save(buffered, format="PNG")
-    return base64.b64encode(buffered.getvalue()).decode("utf-8")
+def encode_base64_image(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
 
 def handler(event):
-    prompt = event.get("prompt", "")
-    image_b64 = event.get("image", "")
+    prompt = event.get("prompt")
+    image_b64 = event.get("image")
 
     if not prompt or not image_b64:
-        return {"error": "Both 'prompt' and 'image' (base64) are required."}
+        return {"error": "Missing prompt or image."}
+
+    input_path = f"/tmp/input-{uuid.uuid4()}.png"
+    output_path = "/tmp/out/flux_output.png"
+
+    save_base64_image(image_b64, input_path)
 
     try:
-        input_image = decode_base64_image(image_b64)
+        subprocess.run([
+            "python3", "-m", "flux", "kontext",
+            "--prompt", prompt,
+            "--image", input_path,
+            "--output_dir", "/tmp/out"
+        ], check=True)
 
-        edited = pipe(
-            image=input_image,
-            prompt=prompt,
-            guidance_scale=2.5
-        ).images[0]
-
-        return {
-            "output": encode_base64_image(edited)
-        }
-    except Exception as e:
-        return {"error": str(e)}
+        output_b64 = encode_base64_image(output_path)
+        return {"output": output_b64}
+    except subprocess.CalledProcessError as e:
+        return {"error": f"FLUX crashed: {e}"}
+    except Exception as ex:
+        return {"error": str(ex)}

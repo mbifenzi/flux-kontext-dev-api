@@ -1,19 +1,21 @@
 FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && apt-get install -y \
-    python3 python3-pip git git-lfs libgl1 libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
+    git git-lfs python3.10 python3.10-venv python3-pip libgl1 libglib2.0-0 && \
+    ln -sf /usr/bin/python3.10 /usr/bin/python && \
+    pip install --upgrade pip
 
-RUN pip3 install --upgrade pip
+# Clone and install flux
+WORKDIR /app
+RUN git clone https://github.com/black-forest-labs/flux.git
+WORKDIR /app/flux
+RUN pip install -e ".[all]"
 
+# Back to root dir
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-RUN git lfs install
-
-COPY . .
+COPY handler.py .
 
 CMD ["python3", "handler.py"]
